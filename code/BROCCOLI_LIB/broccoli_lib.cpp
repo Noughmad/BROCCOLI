@@ -2011,6 +2011,12 @@ void BROCCOLI_LIB::SetNonParametricImageRegistrationFilters(float* qf1r, float* 
 
 void SetNonParametricImageRegistrationFilters(float* qf1r, float* qf1i, float* qf2r, float* qf2i, float* q3r, float* q3i, float* qf4r, float* qf4i, float* qf5r, float* qf5i, float* q6r, float* q6i);
 
+#ifndef NDEBUG
+#  define DEBUG_PROJECTION(name) printf("%s projection tensor: %g %g %g %g %g %g\n", #name, m11, m12, m13, m22, m23, m33)
+#else
+#  define DEBUG_PROJECTION(name) while(0)
+#endif
+
 void BROCCOLI_LIB::SetProjectionTensorMatrixFirstFilter(float m11, float m12, float m13, float m22, float m23, float m33)
 {
 	M11_1 = m11;
@@ -2019,6 +2025,8 @@ void BROCCOLI_LIB::SetProjectionTensorMatrixFirstFilter(float m11, float m12, fl
 	M22_1 = m22;
 	M23_1 = m23;
 	M33_1 = m33;
+    
+    DEBUG_PROJECTION(First);
 }
 
 void BROCCOLI_LIB::SetProjectionTensorMatrixSecondFilter(float m11, float m12, float m13, float m22, float m23, float m33)
@@ -2029,6 +2037,8 @@ void BROCCOLI_LIB::SetProjectionTensorMatrixSecondFilter(float m11, float m12, f
 	M22_2 = m22;
 	M23_2 = m23;
 	M33_2 = m33;
+    
+    DEBUG_PROJECTION(Second);
 }
 
 void BROCCOLI_LIB::SetProjectionTensorMatrixThirdFilter(float m11, float m12, float m13, float m22, float m23, float m33)
@@ -2039,6 +2049,8 @@ void BROCCOLI_LIB::SetProjectionTensorMatrixThirdFilter(float m11, float m12, fl
 	M22_3 = m22;
 	M23_3 = m23;
 	M33_3 = m33;
+    
+    DEBUG_PROJECTION(Third);
 }
 
 void BROCCOLI_LIB::SetProjectionTensorMatrixFourthFilter(float m11, float m12, float m13, float m22, float m23, float m33)
@@ -2049,6 +2061,8 @@ void BROCCOLI_LIB::SetProjectionTensorMatrixFourthFilter(float m11, float m12, f
 	M22_4 = m22;
 	M23_4 = m23;
 	M33_4 = m33;
+    
+    DEBUG_PROJECTION(Fourth);
 }
 
 void BROCCOLI_LIB::SetProjectionTensorMatrixFifthFilter(float m11, float m12, float m13, float m22, float m23, float m33)
@@ -2059,6 +2073,8 @@ void BROCCOLI_LIB::SetProjectionTensorMatrixFifthFilter(float m11, float m12, fl
 	M22_5 = m22;
 	M23_5 = m23;
 	M33_5 = m33;
+    
+    DEBUG_PROJECTION(Fifth);
 }
 
 void BROCCOLI_LIB::SetProjectionTensorMatrixSixthFilter(float m11, float m12, float m13, float m22, float m23, float m33)
@@ -2069,6 +2085,8 @@ void BROCCOLI_LIB::SetProjectionTensorMatrixSixthFilter(float m11, float m12, fl
 	M22_6 = m22;
 	M23_6 = m23;
 	M33_6 = m33;
+    
+    DEBUG_PROJECTION(Sixth);
 }
 
 void BROCCOLI_LIB::SetFilterDirections(float* x, float* y, float* z)
@@ -2076,6 +2094,10 @@ void BROCCOLI_LIB::SetFilterDirections(float* x, float* y, float* z)
 	h_Filter_Directions_X = x;
 	h_Filter_Directions_Y = y;
 	h_Filter_Directions_Z = z;
+    
+#ifndef NDEBUG
+    printf("Filter directions: %g %g %g\n", x, y, z);
+#endif
 }
 
 void BROCCOLI_LIB::SetNumberOfIterationsForParametricImageRegistration(int N)
