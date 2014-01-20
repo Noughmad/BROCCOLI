@@ -127,16 +127,17 @@ class BROCCOLI_LIB(BROCCOLI_LIB_BASE):
 
   def SetParametricImageRegistrationFilters(self, filters):
     args = []
+    print("Filter shape: ", filters[0].shape)
     for i in range(3):
-      args.append(self.packVolume(numpy.real(filters[i])))
-      args.append(self.packVolume(numpy.imag(filters[i])))
+      args.append(self.packFilter(numpy.real(filters[i])))
+      args.append(self.packFilter(numpy.imag(filters[i])))
     BROCCOLI_LIB_BASE.SetParametricImageRegistrationFilters(self, *args)
     
   def SetNonParametricImageRegistrationFilters(self, filters):
     args = []
     for i in range(6):
-      args.append(self.packVolume(numpy.real(filters[i])))
-      args.append(self.packVolume(numpy.imag(filters[i])))
+      args.append(self.packFilter(numpy.real(filters[i])))
+      args.append(self.packFilter(numpy.imag(filters[i])))
     BROCCOLI_LIB_BASE.SetNonParametricImageRegistrationFilters(self, *args)
     
   def SetProjectionTensorMatrixFilters(self, filters):
@@ -159,6 +160,12 @@ class BROCCOLI_LIB(BROCCOLI_LIB_BASE):
       t = array.transpose(_pack_permutation_4d)
     else:
       t = array
+    t = self.packArray(t.flatten())
+    self._input_arrays.append(t)
+    return t
+
+  def packFilter(self, array):
+    t = array.transpose(_pack_permutation)
     t = self.packArray(t.flatten())
     self._input_arrays.append(t)
     return t

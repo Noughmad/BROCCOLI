@@ -88,6 +88,11 @@ void debugVolumeInfo(const char* name, int W, int H, int D, float* volume)
     debugVolumeInfo(name, W, H, D, 1, volume);
 }
 
+void debugFilter(const char* name, int W, int H, float* filter)
+{
+    debugVolumeInfo(name, W, H, 1, 1, filter);
+}
+
 // Constructors
 
 BROCCOLI_LIB::BROCCOLI_LIB()
@@ -1965,6 +1970,13 @@ void BROCCOLI_LIB::SetParametricImageRegistrationFilters(float* qf1r, float* qf1
 
 	h_Quadrature_Filter_3_Parametric_Registration_Real = qf3r;
 	h_Quadrature_Filter_3_Parametric_Registration_Imag = qf3i;
+    
+    debugFilter("qf1r", 7, 7, qf1r);
+    debugFilter("qf1i", 7, 7, qf1i);
+    debugFilter("qf2r", 7, 7, qf2r);
+    debugFilter("qf2i", 7, 7, qf2i);
+    debugFilter("qf3r", 7, 7, qf3r);
+    debugFilter("qf3i", 7, 7, qf3i);
 }
 
 //void BROCCOLI_LIB::SetNonParametricImageRegistrationFilters(cl_float2* qf1, cl_float2* qf2, cl_float2* qf3, cl_float2* qf4, cl_float2* qf5, cl_float2* qf6)
@@ -1982,6 +1994,19 @@ void BROCCOLI_LIB::SetNonParametricImageRegistrationFilters(float* qf1r, float* 
 	h_Quadrature_Filter_5_NonParametric_Registration_Imag = qf5i;
 	h_Quadrature_Filter_6_NonParametric_Registration_Real = qf6r;
 	h_Quadrature_Filter_6_NonParametric_Registration_Imag = qf6i;
+    
+    debugFilter("qf1r", 7, 7, qf1r);
+    debugFilter("qf1i", 7, 7, qf1i);
+    debugFilter("qf2r", 7, 7, qf2r);
+    debugFilter("qf2i", 7, 7, qf2i);
+    debugFilter("qf3r", 7, 7, qf3r);
+    debugFilter("qf3i", 7, 7, qf3i);
+    debugFilter("qf4r", 7, 7, qf4r);
+    debugFilter("qf4i", 7, 7, qf4i);
+    debugFilter("qf5r", 7, 7, qf5r);
+    debugFilter("qf5i", 7, 7, qf5i);
+    debugFilter("qf6r", 7, 7, qf6r);
+    debugFilter("qf6i", 7, 7, qf6i);
 }
 
 void SetNonParametricImageRegistrationFilters(float* qf1r, float* qf1i, float* qf2r, float* qf2i, float* q3r, float* q3i, float* qf4r, float* qf4i, float* qf5r, float* qf5i, float* q6r, float* q6i);
@@ -5964,7 +5989,7 @@ void BROCCOLI_LIB::TransformVolumesNonParametric(cl_mem d_Volumes,
 void BROCCOLI_LIB::PerformFirstLevelAnalysisWrapper()
 {
 	//------------------------
-
+    
 	// Allocate memory on device
 	d_T1_Volume = clCreateBuffer(context, CL_MEM_READ_WRITE,  T1_DATA_W * T1_DATA_H * T1_DATA_D * sizeof(float), NULL, NULL);
 	d_MNI_Volume = clCreateBuffer(context, CL_MEM_READ_WRITE,  MNI_DATA_W * MNI_DATA_H * MNI_DATA_D * sizeof(float), NULL, NULL);
