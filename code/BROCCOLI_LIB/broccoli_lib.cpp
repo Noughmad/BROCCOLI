@@ -2094,10 +2094,10 @@ void BROCCOLI_LIB::SetFilterDirections(float* x, float* y, float* z)
 	h_Filter_Directions_X = x;
 	h_Filter_Directions_Y = y;
 	h_Filter_Directions_Z = z;
-    
-#ifndef NDEBUG
-    printf("Filter directions: %g %g %g\n", x, y, z);
-#endif
+
+    debugVolumeInfo("Filter_Directions_X", NUMBER_OF_FILTERS_FOR_NONPARAMETRIC_REGISTRATION, 1, 1, x);
+    debugVolumeInfo("Filter_Directions_Y", NUMBER_OF_FILTERS_FOR_NONPARAMETRIC_REGISTRATION, 1, 1, y);
+    debugVolumeInfo("Filter_Directions_Z", NUMBER_OF_FILTERS_FOR_NONPARAMETRIC_REGISTRATION, 1, 1, z);
 }
 
 void BROCCOLI_LIB::SetNumberOfIterationsForParametricImageRegistration(int N)
