@@ -3185,6 +3185,18 @@ float6 Conv_2D_Unrolled_7x7_ThreeFilters_AMD_(__local float image[64][128],
 	return sum;
 }
 
+__kernel void MemsetInt(__global int *Data,
+	                    __private int value,
+					    __private int N)
+{
+	int i = get_global_id(0);
+
+	if (i >= N)
+		return;
+
+	Data[i] = value;
+}
+
 
 __kernel void Memset(__global float *Data, 
 	                 __private float value, 
@@ -4766,6 +4778,44 @@ __kernel void InterpolateVolumeLinearNonParametric(__global float* Volume,
 
 	float4 Interpolated_Value = read_imagef(Original_Volume, volume_sampler_linear, Motion_Vector);
 	Volume[idx4D] = Interpolated_Value.x;
+}
+
+__kernel void AddParametricAndNonParametricDisplacement(__global float* d_Displacement_Field_X,
+		   	   	   	   	   	   	   	   	   	   	   	    __global float* d_Displacement_Field_Y,
+		   	   	   	   	   	   	   	   	   	   	   	    __global float* d_Displacement_Field_Z,
+	                                            	 	__constant float* c_Parameter_Vector,
+	                                            	 	__private int DATA_W,
+	                                            	 	__private int DATA_H,
+	                                            	 	__private int DATA_D)
+{
+	int x = get_global_id(0);
+	int y = get_global_id(1);
+	int z = get_global_id(2);
+
+	if ((x >= DATA_W) || (y >= DATA_H) || (z >= DATA_D))
+		return;
+
+	int idx = Calculate3DIndex(x,y,z,DATA_W,DATA_H);
+	float4 Motion_Vector;
+	float xf, yf, zf;
+
+    // (motion_vector.x)   (p0)   (p3  p4  p5)   (x)
+	// (motion_vector.y) = (p1) + (p6  p7  p8) * (y)
+ 	// (motion_vector.z)   (p2)   (p9 p10 p11)   (z)
+
+	// Change to coordinate system with origo in (sx - 1)/2 (sy - 1)/2 (sz - 1)/2
+	xf = (float)x - ((float)DATA_W - 1.0f) * 0.5f;
+	yf = (float)y - ((float)DATA_H - 1.0f) * 0.5f;
+	zf = (float)z - ((float)DATA_D - 1.0f) * 0.5f;
+
+	Motion_Vector.x = c_Parameter_Vector[0] + c_Parameter_Vector[3] * xf + c_Parameter_Vector[4]   * yf + c_Parameter_Vector[5]  * zf;
+	Motion_Vector.y = c_Parameter_Vector[1] + c_Parameter_Vector[6] * xf + c_Parameter_Vector[7]   * yf + c_Parameter_Vector[8]  * zf;
+	Motion_Vector.z = c_Parameter_Vector[2] + c_Parameter_Vector[9] * xf + c_Parameter_Vector[10]  * yf + c_Parameter_Vector[11] * zf;
+	Motion_Vector.w = 0.0f;
+
+	d_Displacement_Field_X[idx] += Motion_Vector.x;
+	d_Displacement_Field_Y[idx] += Motion_Vector.y;
+	d_Displacement_Field_Z[idx] += Motion_Vector.z;
 }
 
 float bspline(float t)
@@ -10724,6 +10774,7 @@ __kernel void CalculateStatisticalMapsGLMTTestSecondLevelPermutation(__global fl
 		CalculateBetaWeightsSecondLevel(beta, value, c_xtxxt_GLM, v, c_Permutation_Vector, NUMBER_OF_VOLUMES, NUMBER_OF_REGRESSORS);
 	}
 
+	/*
 	// Calculate the mean and variance of the error eps
 	meaneps = 0.0f;
 	vareps = 0.0f;
@@ -10741,6 +10792,21 @@ __kernel void CalculateStatisticalMapsGLMTTestSecondLevelPermutation(__global fl
 		vareps += delta * (eps - meaneps);
 	}
 	vareps = vareps / (n - 1.0f);
+	*/
+
+	vareps = 0.0f;
+	float n = 0.0f;
+	for (int v = 0; v < NUMBER_OF_VOLUMES; v++)
+	{
+		eps = Volumes[Calculate4DIndex(x,y,z,v,DATA_W,DATA_H,DATA_D)];
+
+		// Loop over regressors using unrolled code for performance
+		eps = CalculateEpsSecondLevel(eps, beta, c_X_GLM, v, c_Permutation_Vector, NUMBER_OF_VOLUMES, NUMBER_OF_REGRESSORS);
+
+		vareps += eps * eps;
+	}
+	vareps = vareps / ((float)NUMBER_OF_VOLUMES - 1.0f);
+
 
 	// Loop over contrasts and calculate t-values
 
@@ -11110,17 +11176,47 @@ __kernel void GeneratePermutedVolumesFirstLevel(__global float* Permuted_fMRI_Vo
 
 
 
+__kernel void SetStartClusterIndicesKernel(__global int* Cluster_Indices,
+										   __global const float* Data,
+										   __global const float* Mask,
+										   __private float threshold,
+										   __private int DATA_W,
+										   __private int DATA_H,
+										   __private int DATA_D)
+{
+	int x = get_global_id(0);
+	int y = get_global_id(1);
+	int z = get_global_id(2);
+
+	if (x >= DATA_W || y >= DATA_H || z >= DATA_D)
+		return;
+
+	// Threshold data
+	if ( (Mask[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] == 1.0f) && (Data[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] > threshold) )
+	{
+		// Set an unique index
+		Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] = Calculate3DIndex(x,y,z,DATA_W,DATA_H);
+	}
+	else
+	{
+		// Make sure that all other voxels have a higher start index
+		Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] = DATA_W * DATA_H * DATA_D * 3;
+	}
+}
 
 
-// Not working
-__kernel void Clusterize(volatile __global int* Cluster_Indices,
-						 volatile __global int* current_cluster,
-						 __global const float* Data,
-						 __global const float* Mask,
-						 __private float threshold,
-					     __private int DATA_W, 
-						 __private int DATA_H, 
-						 __private int DATA_D)
+
+
+
+
+__kernel void ClusterizeScan(__global int* Cluster_Indices,
+						  	  volatile __global float* Updated,
+						  	  __global const float* Data,
+						  	  __global const float* Mask,
+						  	  __private float threshold,
+						  	  __private int DATA_W,
+						  	  __private int DATA_H,
+						  	  __private int DATA_D)
 {
 	int x = get_global_id(0);
 	int y = get_global_id(1);
@@ -11135,46 +11231,264 @@ __kernel void Clusterize(volatile __global int* Cluster_Indices,
 	// Threshold data
 	if ( Data[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] > threshold )
 	{
-		int cluster_index = 0;
+		int label1, label2, temp;
 
-		for (int zz = -1; zz < 2; zz++)
+		label2 = DATA_W * DATA_H * DATA_D * 3;
+
+		// Original index
+		label1 = Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)];
+
+		// z - 1
+		temp = Cluster_Indices[Calculate3DIndex(x-1,y,z-1,DATA_W,DATA_H)];
+		if (temp < label2)
 		{
-			for (int yy = -1; yy < 2; yy++)
-			{
-				for (int xx = -1; xx < 2; xx++)
-				{
-					if ( ((x + xx) >= 0) && ((y + yy) >= 0) && ((z + zz) >= 0) && ((x + xx) < DATA_W) && ((y + yy) < DATA_H) && ((z + zz) < DATA_D) )
-					{
-						cluster_index = mymax(Cluster_Indices[Calculate3DIndex(x+xx,y+yy,z+zz,DATA_W,DATA_H)],cluster_index);
-					}
-				}
-			}
+			label2 = temp;
 		}
 
-		// Use existing cluster index
-		if (cluster_index != 0)
+		temp = Cluster_Indices[Calculate3DIndex(x-1,y-1,z-1,DATA_W,DATA_H)];
+		if (temp < label2)
 		{
-			//Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] = cluster_index;
-			atomic_xchg(&Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)],cluster_index);
+			label2 = temp;
 		}
-		// Use new cluster index
-		else
+
+		temp = Cluster_Indices[Calculate3DIndex(x-1,y+1,z-1,DATA_W,DATA_H)];
+		if (temp < label2)
 		{
-			atomic_inc(current_cluster);
-			atomic_xchg(&Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)],*current_cluster);
-		}		
-	}
-	else
-	{
-		Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] = 0;
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x,y,z-1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x,y-1,z-1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x,y+1,z-1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x+1,y,z-1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x+1,y-1,z-1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x+1,y+1,z-1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		// z
+
+		temp = Cluster_Indices[Calculate3DIndex(x-1,y,z,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x-1,y-1,z,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x-1,y+1,z,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x,y-1,z,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x,y+1,z,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x+1,y,z,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x+1,y-1,z,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x+1,y+1,z,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		// z + 1
+
+		temp = Cluster_Indices[Calculate3DIndex(x-1,y,z+1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x-1,y-1,z+1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x-1,y+1,z+1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x,y,z+1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x,y-1,z+1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x,y+1,z+1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x+1,y,z+1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x+1,y-1,z+1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		temp = Cluster_Indices[Calculate3DIndex(x+1,y+1,z+1,DATA_W,DATA_H)];
+		if (temp < label2)
+		{
+			label2 = temp;
+		}
+
+		if (label2 < label1)
+		{
+			Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] = label2;
+			float one = 1.0f;
+			atomic_xchg(Updated,one);
+		}
+
 	}
 }
 
 
 
+__kernel void ClusterizeRelabel(__global int* Cluster_Indices,
+						  	  	__global const float* Data,
+						  	  	__global const float* Mask,
+						  	  	__private float threshold,
+						  	  	__private int DATA_W,
+						  	  	__private int DATA_H,
+						  	  	__private int DATA_D)
+{
+	int x = get_global_id(0);
+	int y = get_global_id(1);
+	int z = get_global_id(2);
 
+	if (x >= DATA_W || y >= DATA_H || z >= DATA_D)
+		return;
 
+	// Threshold data
+	if ( (Mask[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] == 1.0f) && (Data[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] > threshold) )
+	{
+		// Relabel voxels
+		int label = Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)];
+		int next = Cluster_Indices[label];
+		while (next != label)
+		{
+			label = next;
+			next = Cluster_Indices[label];
+		}
+		Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] = label;
+	}
+}
 
+__kernel void CalculateClusterSizes(__global int* Cluster_Indices,
+						  	  	    volatile __global int* Cluster_Sizes,
+						  	  	    __global const float* Data,
+						  	  	    __global const float* Mask,
+						  	  	    __private float threshold,
+						  	  	    __private int DATA_W,
+						  	  	    __private int DATA_H,
+						  	  	    __private int DATA_D)
+{
+	int x = get_global_id(0);
+	int y = get_global_id(1);
+	int z = get_global_id(2);
+
+	if (x >= DATA_W || y >= DATA_H || z >= DATA_D)
+		return;
+
+	if ( Mask[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] != 1.0f )
+		return;
+
+	// Threshold data
+	if ( Data[Calculate3DIndex(x,y,z,DATA_W,DATA_H)] > threshold )
+	{
+		// Increment counter for the current cluster index
+		atomic_inc(&Cluster_Sizes[Cluster_Indices[Calculate3DIndex(x,y,z,DATA_W,DATA_H)]]);
+	}
+}
+
+__kernel void CalculateLargestCluster(__global int* Cluster_Sizes,
+								      volatile global int* Largest_Cluster,
+   						  	  	      __private int DATA_W,
+									  __private int DATA_H,
+									  __private int DATA_D)
+{
+	int x = get_global_id(0);
+	int y = get_global_id(1);
+	int z = get_global_id(2);
+
+	if (x >= DATA_W || y >= DATA_H || z >= DATA_D)
+		return;
+
+	int cluster_size = Cluster_Sizes[Calculate3DIndex(x,y,z,DATA_W,DATA_H)];
+
+	// Most cluster size counters are zero, so avoid running atomic max for those
+	if (cluster_size == 0)
+		return;
+
+	atomic_max(Largest_Cluster,cluster_size);
+}
 
 
 __kernel void ThresholdVolume(__global float* Thresholded_Volume, 
