@@ -31,11 +31,14 @@ def load_MNI_templates(mni_file, mni_brain_file = None, mni_brain_mask_file = No
     
   return MNI, MNI_brain, MNI_brain_mask, voxel_sizes
 
-def load_T1(t1_file):
-  T1_nni = nifti1.load(t1_file)
+def load_nni(nni_file):
+  T1_nni = nifti1.load(nni_file)
   T1 = T1_nni.get_data()
   T1_voxel_sizes = T1_nni.get_header()['pixdim'][1:4]
   return T1, T1_voxel_sizes
+
+def load_T1(t1_file):
+  return load_nni(t1_file)
   
 def load_EPI(epi_file, only_volume=True):
   EPI_nni = nifti1.load(epi_file)
