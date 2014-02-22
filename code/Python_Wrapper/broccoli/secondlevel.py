@@ -19,7 +19,7 @@ def plotVolume(data, sliceYrel, sliceZrel):
   plot.figure()
 
 def performSecondLevelAnalysis(
-  first_level_results, MNI_brain_mask_data
+  first_level_results, MNI_brain_mask_data,
   X_GLM, xtxxt_GLM, contrasts, ctxtxc_GLM,
   statistical_test, permutation_matrix, number_of_permutations, inference_mode, cluster_defining_threshold,
   opencl_platform, opencl_device, show_results = False,
@@ -60,57 +60,32 @@ def performSecondLevelAnalysis(
   BROCCOLI.SetDesignMatrix(BROCCOLI.packVolume(X_GLM), BROCCOLI.packVolume(xtxxt_GLM))
   BROCCOLI.SetContrasts(BROCCOLI.packVolume(contrasts))
   BROCCOLI.SetGLMScalars(BROCCOLI.packVolume(ctxtxc_GLM))
-  BROCCOLI.SetPermutationMatrix(BROCCOLI.packVolume(permutation_matrix)
+  BROCCOLI.SetPermutationMatrix(BROCCOLI.packVolume(permutation_matrix))
   
-  BROCCOLI.SetOutputDesignMatrix(h_Design_Matrix, h_Design_Matrix2);        
-  BROCCOLI.SetOutputBetaVolumes(h_Beta_Volumes);        
-  BROCCOLI.SetOutputResiduals(h_Residuals);        
-  BROCCOLI.SetOutputResidualVariances(h_Residual_Variances);        
-  BROCCOLI.SetOutputStatisticalMaps(h_Statistical_Maps);        
-  BROCCOLI.SetOutputClusterIndices(h_Cluster_Indices);
-  BROCCOLI.SetOutputPermutationDistribution(h_Permutation_Distribution);
-  BROCCOLI.SetOutputPermutedFirstLevelResults(h_Permuted_First_Level_Results);       
+  design_matrix_1 = BROCCOLI.createOutputArray((number_of_subjects, number_of_GLM_regressors))
+  design_matrix_2 = BROCCOLI.createOutputArray((number_of_subjects, number_of_GLM_regressors))
+  BROCCOLI.SetOutputDesignMatrix(design_matrix_1, design_matrix_2)
+  
+  beta_volumes = BROCCOLI.createOutputArray(MNI_brain_mask_data.shape[0:3] + (number_of_GLM_regressors,))
+  BROCCOLI.SetOutputBetaVolumes(beta_volumes)
+  
+  residuals = BROCCOLI.createOutputArray(MNI_brain_mask_data.shape[0:3] + (number_of_subjects,))
+  BROCCOLI.SetOutputResiduals(residuals)
+  
+  residual_variances = BROCCOLI.createOutputArray(MNI_brain_mask_data.shape[0:3])
+  BROCCOLI.SetOutputResidualVariances(residual_variances)
+  
+  statistical_maps = BROCCOLI.createOutputArray(MNI_brain_mask_data.shape[0:3] + (number_of_contrasts,))
+  BROCCOLI.SetOutputStatisticalMaps(statistical_maps)
+  
+  cluster_indices = BROCCOLI.createOutputArray(MNI_brain_mask_data.shape[0:3], dtype=numpy.int32)
+  BROCCOLI.SetOutputClusterIndices(cluster_indices)
+  
+  permutation_distribution = BROCCOLI.createOutputArray((number_of_permutations, 1))
+  BROCCOLI.SetOutputPermutationDistribution(permutation_distribution)
+  
+  permuted_first_level_results = BROCCOLI.createOutputArray(first_level_results.shape)
+  BROCCOLI.SetOutputPermutedFirstLevelResults(permuted_first_level_results)    
 
   BROCCOLI.PerformSecondLevelAnalysisWrapper()
   
-  if show_results:
-    for volume in [aligned_T1_Volume_nonparametric, aligned_EPI_volume, MNI_brain_data]:
-      plotVolume(volume, 0.45, 0.47)
-      
-  plot.plot(motion_parameters[0],'g')
-  plot.plot(motion_parameters[1],'r')
-  plot.plot(motion_parameters[2],'b')
-  plot.title('Translation (mm)')
-  plot.legend('X','Y','Z')
-  plot.draw()
-  plot.figure()
-  
-  plot.plot(motion_parameters[3],'g')
-  plot.plot(motion_parameters[4],'r')
-  plot.plot(motion_parameters[5],'b')
-  plot.title('Rotation (degrees)')
-  plot.legend('X','Y','Z')
-  plot.draw()
-  plot.figure()
-  
-  
-  if beta_space == broccoli.MNI:
-      slice = int(MNI_brain_data.shape[2] / 2)
-  else:
-      slice = int(fMRI_data.shape[2] / 2)
-  
-  plot.imshow(numpy.flipud(MNI_brain_data[:,:,slice]), cmap = cm.Greys_r, interpolation="nearest")
-  plot.draw()
-  plot.figure()
-  
-  print(statistical_maps.shape)
-  print(statistical_maps[..., 0].shape)
-  plot.imshow(numpy.flipud(statistical_maps[:,:,slice,0]), interpolation="nearest")
-  plot.draw()
-  plot.figure()
-
-  plot.close()
-  plot.show()
-  
-  # TODO: Return more parameters in proper order
-  return statistical_maps
