@@ -50,7 +50,11 @@
 
 #include <cstdlib>
 
-
+#ifndef NDEBUG
+#  define DEBUG_OUTPUT(fmt, ...) printf(fmt, ##__VA_ARGS__)
+#else
+#  define DEBUG_OUTPUT(...)
+#endif
 
 
 // public
@@ -2117,11 +2121,13 @@ void BROCCOLI_LIB::SetCoarsestScaleEPIT1(int N)
 
 void BROCCOLI_LIB::SetMMT1ZCUT(int mm)
 {
+    DEBUG_OUTPUT("MM T1 Z cut = %d\n", mm);
 	MM_T1_Z_CUT = mm;
 }
 
 void BROCCOLI_LIB::SetMMEPIZCUT(int mm)
 {
+    DEBUG_OUTPUT("MM EPI Z cut = %d\n", mm);
 	MM_EPI_Z_CUT = mm;
 }
 

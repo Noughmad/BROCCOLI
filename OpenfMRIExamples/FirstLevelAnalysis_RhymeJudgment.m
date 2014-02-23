@@ -114,7 +114,7 @@ load filters_for_nonparametric_registration.mat
 % Load T1 volume
 %--------------------------------------------------------------------------------------
 
-T1_nii = load_nii([basepath study subject '/anatomy/highres001_brain.nii.gz']);
+T1_nii = load_nii([basepath study subject '/anatomy/highres001_brain.nii']);
 T1 = double(T1_nii.img);
 
 [T1_sy T1_sx T1_sz] = size(T1);
@@ -128,7 +128,7 @@ T1_voxel_size_z = T1_nii.hdr.dime.pixdim(4);
 % Load fMRI data
 %--------------------------------------------------------------------------------------
 
-EPI_nii = load_nii([basepath study subject '/BOLD/task001_run001/bold.nii.gz']);
+EPI_nii = load_nii([basepath study subject '/BOLD/task001_run001/bold.nii']);
 fMRI_volumes = double(EPI_nii.img);
 [sy sx sz st] = size(fMRI_volumes);
 
@@ -171,7 +171,7 @@ MNI_voxel_size_z = MNI_nii.hdr.dime.pixdim(4);
 
 % Make high resolution regressors first
 
-highres_factor = 10
+highres_factor = 1
 X_GLM_highres = zeros(st*highres_factor,2);
 X_GLM = zeros(st,2);
 
@@ -192,12 +192,14 @@ for regressor = 1:2
 
         for j = 1:activity_length
             X_GLM_highres(start+j,regressor) = value; 
-        end                    
+        end
     end
     
+    nonzero = nnz(X_GLM_highres);
+    nonzero
+    
     % Downsample
-    temp = decimate(X_GLM_highres(:,regressor),highres_factor);
-    X_GLM(:,regressor) = temp(1:st);
+    temp = decimate(X_GLM_highres(:,regressor), highres_factor);
 end
     
 xtxxt_GLM = inv(X_GLM'*X_GLM)*X_GLM';
@@ -429,6 +431,8 @@ if save_as_nifti == 1
 
 end
 
-%k = waitforbuttonpress
+if ismiha
+    k = waitforbuttonpress
+end
 
 

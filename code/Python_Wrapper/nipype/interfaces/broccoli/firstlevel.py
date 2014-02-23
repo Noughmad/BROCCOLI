@@ -63,7 +63,7 @@ class FirstLevelAnalysis(BroccoliInterface):
     
     def load_regressors(self, st):
         files = [f for f in os.listdir(self.inputs.GLM_path) if op.isfile(op.join(self.inputs.GLM_path, f))]
-        data = [self.load_regressor(op.join(self.inputs.GLM_path, f), st, 10) for f in files]
+        data = [self.load_regressor(op.join(self.inputs.GLM_path, f), st, 1) for f in files]
         return np.array(data).transpose()
         
     def _run_interface(self, runtime):
@@ -80,22 +80,26 @@ class FirstLevelAnalysis(BroccoliInterface):
         filter_directions = [filters_nonparametric_mat['filter_directions_%s' % d][0] for d in ['x', 'y', 'z']]
         
         X_GLM = self.load_regressors(fMRI.shape[3])
+        print("X_GLM.shape = %s", X_GLM.shape)
+        # print("X_GLM = %s", X_GLM)
         xtx = np.linalg.inv(np.dot(X_GLM.T, X_GLM))
-        # print(xtx)
+        print("xtx.shape = %s", xtx.shape)
         xtxxt_GLM = xtx.dot(X_GLM.T)
 
         confounds = 1
         if self.inputs.regress_confounds:
             confounds = np.loadtxt(self.inputs.confounds_file)
 
-        contrasts = np.array([[1, 0], [1, 0], [1, 0], [1, 0]])
+        contrasts = np.array([[1, 0]])
+        print("contrasts = %s" % contrasts)
         ctxtxc_GLM = [contrasts[i:i+1].dot(xtx).dot(contrasts[i:i+1].T) for i in range(len(contrasts))]
+        print("ctxtxc_GLM = %s" % ctxtxc_GLM)
         
         fMRI_voxel_sizes = [int(round(v)) for v in T1_voxel_sizes]
         T1_voxel_sizes = [int(round(v)) for v in T1_voxel_sizes]
         MNI_voxel_sizes = [int(round(v)) for v in T1_voxel_sizes]
         
-        
+        print("Parameters: %s" % self.inputs)
         
         statistical_maps = broccoli.performFirstLevelAnalysis(
             fMRI, fMRI_voxel_sizes, T1, T1_voxel_sizes, MNI, MNI_brain, MNI_brain_mask, MNI_voxel_sizes,
